@@ -1,11 +1,12 @@
-import Hero from "./components/Hero";
-import About from "./components/About";
-import HowItWorks from "./components/HowItWorks";
-import DataPreview from "./components/DataPreview";
-import Rewards from "./components/Rewards";
-import Join from "./components/Join";
-import Footer from "./components/Footer";
+import Hero from "@/components/Hero";
+import About from "@/components/About";
+import HowItWorks from "@/components/HowItWorks";
+import DataPreview from "@/components/DataPreview";
+import Rewards from "@/components/Rewards";
+import Join from "@/components/Join";
+import Footer from "@/components/Footer";
 import { redirect } from 'next/navigation';
+import Link from "next/link";
 
 export default function Home() {
   return (
@@ -19,7 +20,7 @@ export default function Home() {
             <a href="#how" className="hover:underline">How It Works</a>
             <a href="#data" className="hover:underline">Data</a>
             <a href="#rewards" className="hover:underline">Rewards</a>
-            <a href="#join" className="hover:underline">Join</a>
+            <Link href="/sign-in" className="hover:underline">Sign In</Link>
           </div>
         </nav>
       </header>
