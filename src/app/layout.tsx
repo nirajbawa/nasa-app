@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Poppins, Nunito } from "next/font/google";
 // @ts-ignore
 import "@/app/globals.css";
-import { AuthProvider } from "@/contexts/AuthContext";
+import AuthInitializer from "@/components/AuthInitializer";
 
 const poppins = Poppins({
   variable: "--font-sans",
@@ -31,7 +31,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${poppins.variable} ${nunito.variable} antialiased`}>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthInitializer />
+        {children}
       </body>
     </html>
   );

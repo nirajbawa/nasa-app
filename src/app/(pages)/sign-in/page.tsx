@@ -1,12 +1,11 @@
 'use client';
 
-import React from 'react';
-import { useAuth } from '@/contexts/AuthContext';
+import React, { useEffect, useState } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
 
 export default function SignupPage() {
-  const { user, signInWithGoogle, loading } = useAuth();
+  const { user, loading, signInWithGoogle } = useAuth();
   const router = useRouter();
   const [isSigningIn, setIsSigningIn] = useState(false);
 
@@ -20,9 +19,7 @@ export default function SignupPage() {
     setIsSigningIn(true);
     try {
       const result = await signInWithGoogle();
-      if (result.success) {
-        console.log('Google sign-in successful!');
-      } else {
+      if (!result.success && result.error) {
         alert(`Sign-in failed: ${result.error}`);
       }
     } catch (error) {
@@ -62,7 +59,7 @@ export default function SignupPage() {
         <div className="bg-white p-8 rounded-2xl shadow-lg border border-green-100">
           <button
             onClick={handleGoogleSignIn}
-            disabled={isSigningIn}
+            disabled={isSigningIn || loading}
             className="w-full flex items-center justify-center px-4 py-3 border border-gray-300 rounded-lg shadow-sm bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSigningIn ? (
