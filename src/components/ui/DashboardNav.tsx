@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useEffect, useState, useRef, useId } from "react";
+import { useEffect, useState, useRef, useId, forwardRef, ComponentType, ReactNode, MutableRefObject } from "react";
 import {
   FileTextIcon,
   GlobeIcon,
@@ -48,8 +48,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import type { ComponentProps } from "react";
 import { useRouter, usePathname } from "next/navigation";
+
 
 // Simple logo component for the navbar
 const Logo = (props: React.SVGAttributes<SVGElement>) => {
@@ -240,7 +240,7 @@ const UserMenu = ({
 export interface Navbar06NavItem {
   href?: string;
   label: string;
-  icon: React.ComponentType<{
+  icon: ComponentType<{
     size?: number;
     className?: string;
     "aria-hidden"?: boolean;
@@ -254,7 +254,8 @@ export interface Navbar06Language {
 }
 
 export interface Navbar06Props extends React.HTMLAttributes<HTMLElement> {
-  logo?: React.ReactNode;
+  className?: string;
+  logo?: ReactNode;
   logoHref?: string;
   navigationLinks?: Navbar06NavItem[];
   languages?: Navbar06Language[];
@@ -285,7 +286,7 @@ const defaultLanguages: Navbar06Language[] = [
   { value: "ja", label: "Ja" },
 ];
 
-export const Navbar06 = React.forwardRef<HTMLElement, Navbar06Props>(
+export const Navbar06 = forwardRef<HTMLElement, Navbar06Props>(
   (
     {
       className,
@@ -355,11 +356,13 @@ export const Navbar06 = React.forwardRef<HTMLElement, Navbar06Props>(
     // Combine refs
     const combinedRef = React.useCallback(
       (node: HTMLElement | null) => {
-        containerRef.current = node;
+        if (containerRef.current !== node) {
+          (containerRef as MutableRefObject<HTMLElement | null>).current = node;
+        }
         if (typeof ref === "function") {
           ref(node);
         } else if (ref) {
-          ref.current = node;
+          (ref as MutableRefObject<HTMLElement | null>).current = node;
         }
       },
       [ref]
