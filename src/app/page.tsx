@@ -5,6 +5,7 @@ import DataPreview from "./components/DataPreview";
 import Rewards from "./components/Rewards";
 import Join from "./components/Join";
 import Footer from "./components/Footer";
+import { redirect } from 'next/navigation';
 
 export default function Home() {
   return (
@@ -33,4 +34,6 @@ export default function Home() {
       <Footer />
     </div>
   );
+
 }
+
