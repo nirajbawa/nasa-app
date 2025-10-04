@@ -49,6 +49,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import type { ComponentProps } from "react";
+import { useRouter, usePathname } from "next/navigation";
 
 // Simple logo component for the navbar
 const Logo = (props: React.SVGAttributes<SVGElement>) => {
@@ -158,52 +159,82 @@ const UserMenu = ({
   userEmail?: string;
   userAvatar?: string;
   onItemClick?: (item: string) => void;
-}) => (
-  <DropdownMenu>
-    <DropdownMenuTrigger asChild>
-      <Button
-        variant="ghost"
-        className="h-8 px-2 py-0 hover:bg-accent hover:text-accent-foreground"
-      >
-        <Avatar className="h-6 w-6">
-          <AvatarImage src={userAvatar} alt={userName} />
-          <AvatarFallback className="text-xs">
-            {userName
-              .split(" ")
-              .map((n) => n[0])
-              .join("")}
-          </AvatarFallback>
-        </Avatar>
-        <ChevronDownIcon className="h-3 w-3 ml-1" />
-        <span className="sr-only">User menu</span>
-      </Button>
-    </DropdownMenuTrigger>
-    <DropdownMenuContent align="end" className="w-56">
-      <DropdownMenuLabel>
-        <div className="flex flex-col space-y-1">
-          <p className="text-sm font-medium leading-none">{userName}</p>
-          <p className="text-xs leading-none text-muted-foreground">
-            {userEmail}
-          </p>
-        </div>
-      </DropdownMenuLabel>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem onClick={() => onItemClick?.("profile")}>
-        Profile
-      </DropdownMenuItem>
-      <DropdownMenuItem onClick={() => onItemClick?.("settings")}>
-        Settings
-      </DropdownMenuItem>
-      <DropdownMenuItem onClick={() => onItemClick?.("billing")}>
-        Billing
-      </DropdownMenuItem>
-      <DropdownMenuSeparator />
-      <DropdownMenuItem onClick={() => onItemClick?.("logout")}>
-        Log out
-      </DropdownMenuItem>
-    </DropdownMenuContent>
-  </DropdownMenu>
-);
+}) => {
+  const router = useRouter();
+
+  const handleItemClick = (item: string) => {
+    if (onItemClick) {
+      onItemClick(item);
+    } else {
+      // Default navigation behavior
+      switch (item) {
+        case "profile":
+          router.push("/profile");
+          break;
+        case "settings":
+          router.push("/settings");
+          break;
+        case "billing":
+          router.push("/billing");
+          break;
+        case "logout":
+          // Handle logout logic here
+          console.log("Logging out...");
+          router.push("/login");
+          break;
+        default:
+          break;
+      }
+    }
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          className="h-8 px-2 py-0 hover:bg-accent hover:text-accent-foreground"
+        >
+          <Avatar className="h-6 w-6">
+            <AvatarImage src={userAvatar} alt={userName} />
+            <AvatarFallback className="text-xs">
+              {userName
+                .split(" ")
+                .map((n) => n[0])
+                .join("")}
+            </AvatarFallback>
+          </Avatar>
+          <ChevronDownIcon className="h-3 w-3 ml-1" />
+          <span className="sr-only">User menu</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuLabel>
+          <div className="flex flex-col space-y-1">
+            <p className="text-sm font-medium leading-none">{userName}</p>
+            <p className="text-xs leading-none text-muted-foreground">
+              {userEmail}
+            </p>
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => handleItemClick("profile")}>
+          Profile
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleItemClick("settings")}>
+          Settings
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => handleItemClick("billing")}>
+          Billing
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => handleItemClick("logout")}>
+          Log out
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
 
 // Types
 export interface Navbar06NavItem {
@@ -239,10 +270,10 @@ export interface Navbar06Props extends React.HTMLAttributes<HTMLElement> {
 
 // Default navigation links with icons
 const defaultNavigationLinks: Navbar06NavItem[] = [
-  { href: "#", label: "Dashboard", icon: HomeIcon, active: true },
-  { href: "#", label: "Projects", icon: LayersIcon },
-  { href: "#", label: "Documentation", icon: FileTextIcon },
-  { href: "#", label: "Team", icon: UsersIcon },
+  { href: "/dashboard", label: "Dashboard", icon: HomeIcon },
+  { href: "/projects", label: "Projects", icon: LayersIcon },
+  { href: "/documentation", label: "Documentation", icon: FileTextIcon },
+  { href: "/team", label: "Team", icon: UsersIcon },
 ];
 
 // Default language options
@@ -259,7 +290,7 @@ export const Navbar06 = React.forwardRef<HTMLElement, Navbar06Props>(
     {
       className,
       logo = <Logo />,
-      logoHref = "#",
+      logoHref = "/dashboard",
       navigationLinks = defaultNavigationLinks,
       languages = defaultLanguages,
       defaultLanguage = "en",
@@ -274,9 +305,17 @@ export const Navbar06 = React.forwardRef<HTMLElement, Navbar06Props>(
     },
     ref
   ) => {
+    const router = useRouter();
+    const pathname = usePathname();
     const [isMobile, setIsMobile] = useState(false);
     const containerRef = useRef<HTMLElement>(null);
     const selectId = useId();
+
+    // Update active states based on current path
+    const linksWithActiveState = navigationLinks.map(link => ({
+      ...link,
+      active: pathname === link.href || (link.href !== '/' && pathname.startsWith(link.href || ''))
+    }));
 
     useEffect(() => {
       const checkWidth = () => {
@@ -297,6 +336,21 @@ export const Navbar06 = React.forwardRef<HTMLElement, Navbar06Props>(
         resizeObserver.disconnect();
       };
     }, []);
+
+    // Handle navigation
+    const handleNavigation = (href: string) => {
+      if (onNavItemClick) {
+        onNavItemClick(href);
+      } else {
+        // Default navigation behavior
+        router.push(href);
+      }
+    };
+
+    // Handle logo click
+    const handleLogoClick = () => {
+      router.push(logoHref);
+    };
 
     // Combine refs
     const combinedRef = React.useCallback(
@@ -338,15 +392,14 @@ export const Navbar06 = React.forwardRef<HTMLElement, Navbar06Props>(
                 <PopoverContent align="start" className="w-64 p-1">
                   <NavigationMenu className="max-w-none">
                     <NavigationMenuList className="flex-col items-start gap-0">
-                      {navigationLinks.map((link, index) => {
+                      {linksWithActiveState.map((link, index) => {
                         const Icon = link.icon;
                         return (
                           <NavigationMenuItem key={index} className="w-full">
                             <button
                               onClick={(e) => {
                                 e.preventDefault();
-                                if (onNavItemClick && link.href)
-                                  onNavItemClick(link.href);
+                                if (link.href) handleNavigation(link.href);
                               }}
                               className={cn(
                                 "flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground cursor-pointer no-underline",
@@ -372,7 +425,7 @@ export const Navbar06 = React.forwardRef<HTMLElement, Navbar06Props>(
             <div className="flex items-center gap-6">
               {/* Logo */}
               <button
-                onClick={(e) => e.preventDefault()}
+                onClick={handleLogoClick}
                 className="flex items-center space-x-2 text-primary hover:text-primary/90 transition-colors cursor-pointer"
               >
                 <div className="text-2xl">{logo}</div>
@@ -385,7 +438,7 @@ export const Navbar06 = React.forwardRef<HTMLElement, Navbar06Props>(
                 <NavigationMenu className="flex">
                   <NavigationMenuList className="gap-2">
                     <TooltipProvider>
-                      {navigationLinks.map((link) => {
+                      {linksWithActiveState.map((link) => {
                         const Icon = link.icon;
                         return (
                           <NavigationMenuItem key={link.label}>
@@ -395,8 +448,7 @@ export const Navbar06 = React.forwardRef<HTMLElement, Navbar06Props>(
                                   href={link.href}
                                   onClick={(e) => {
                                     e.preventDefault();
-                                    if (onNavItemClick && link.href)
-                                      onNavItemClick(link.href);
+                                    if (link.href) handleNavigation(link.href);
                                   }}
                                   className={cn(
                                     "flex size-8 items-center justify-center p-1.5 rounded-md transition-colors hover:bg-accent hover:text-accent-foreground cursor-pointer",
