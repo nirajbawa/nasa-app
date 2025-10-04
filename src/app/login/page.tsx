@@ -46,7 +46,7 @@ export default function LoginPage() {
     if (validateForm()) {
       // Handle form submission here
       console.log('Login form submitted:', formData);
-      alert('Login successful! Welcome back to FarmConnect!');
+      alert('Login successful! Welcome back to KrishiVed!');
     }
   };
 
@@ -61,7 +61,7 @@ export default function LoginPage() {
             </svg>
           </div>
           <h2 className="text-3xl font-bold text-gray-900 mb-2">Welcome Back</h2>
-          <p className="text-gray-600">Sign in to your FarmConnect account</p>
+          <p className="text-gray-600">Sign in to your KrishiVed account</p>
         </div>
 
         {/* Login Form */}
