@@ -1,0 +1,18 @@
+<svg width="1200" height="750" viewBox="0 0 1200 750" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="750" rx="24" fill="#e8f5e9"/>
+  <g stroke="#a5d6a7" fill="#ffffff">
+    <rect x="80" y="80" width="300" height="220" rx="12"/>
+    <rect x="420" y="80" width="300" height="220" rx="12"/>
+    <rect x="760" y="80" width="360" height="220" rx="12"/>
+
+    <rect x="80" y="340" width="240" height="300" rx="12"/>
+    <rect x="340" y="340" width="340" height="300" rx="12"/>
+    <rect x="700" y="340" width="420" height="300" rx="12"/>
+  </g>
+  <g>
+    <circle cx="480" cy="420" r="10" fill="#2E7D32" stroke="#ffffff" stroke-width="4"/>
+    <circle cx="260" cy="210" r="10" fill="#2E7D32" stroke="#ffffff" stroke-width="4"/>
+    <circle cx="980" cy="210" r="10" fill="#2E7D32" stroke="#ffffff" stroke-width="4"/>
+  </g>
+  <text x="40" y="40" font-size="24" font-family="Poppins, Arial, sans-serif" fill="#2E7D32" opacity="0.8">Mock Farm Map (placeholder)</text>
+</svg>

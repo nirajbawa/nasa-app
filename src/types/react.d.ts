@@ -9,6 +9,10 @@ declare module 'react' {
   }
   
   export function useState<T>(initialState: T): [T, (value: T | ((prev: T) => T)) => void];
+  export function useCallback<T extends (...args: any[]) => any>(callback: T, deps: any[]): T;
+  export function useEffect(effect: () => void | (() => void), deps?: any[]): void;
+  export function useRef<T>(initialValue: T): { current: T };
+  export function useId(): string;
   
   export interface HTMLInputElement {
     name: string;
@@ -33,6 +37,10 @@ declare module 'react' {
     IntrinsicElements: any;
   }
   
+  export interface SVGAttributes<T> {
+    [key: string]: any;
+  }
+  
   export namespace React {
     interface ChangeEvent<T = Element> {
       target: T;
@@ -41,6 +49,10 @@ declare module 'react' {
     
     interface FormEvent<T = Element> {
       preventDefault(): void;
+    }
+    
+    interface ComponentProps<T> {
+      [key: string]: any;
     }
   }
   

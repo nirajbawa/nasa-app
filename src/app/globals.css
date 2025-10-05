@@ -1,4 +1,7 @@
 @import "tailwindcss";
+/* Third-party CSS */
+@import "leaflet/dist/leaflet.css";
+
 
 
 @custom-variant dark (&:is(.dark *));
@@ -6,8 +9,8 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -51,7 +54,14 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+  /* Brand green and tints */
+  --brand-green: #2E7D32; /* NASA Farm Navigators */
+  --brand-green-500: #2E7D32;
+  --brand-green-400: #3f8f43;
+  --brand-green-300: #66bb6a;
+  --brand-green-200: #a5d6a7;
+  --brand-green-100: #e8f5e9;
+  --primary: var(--brand-green);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
@@ -76,6 +86,9 @@
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
+
+  /* Animated gradient for hero */
+  --hero-gradient: linear-gradient(120deg, var(--brand-green-300), var(--brand-green-200), #ffffff);
 }
 
 .dark {
@@ -119,4 +132,102 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Utilities */
+@layer utilities {
+  html { scroll-behavior: smooth; }
+
+  .hero-animated-gradient {
+    background: var(--hero-gradient);
+    background-size: 200% 200%;
+    animation: heroGradientShift 10s ease infinite;
+  }
+  .glass {
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(8px);
+  }
+  .hover-glow:hover {
+    box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.15), 0 8px 30px rgba(46, 125, 50, 0.25);
+  }
+
+  /* Neon green glow for primary actions */
+  .btn-neon {
+    box-shadow: 0 0 12px rgba(102, 187, 106, 0.8), 0 0 28px rgba(46, 125, 50, 0.6);
+  }
+  .btn-neon:hover { filter: brightness(1.05); }
+
+  /* Bounce on hover */
+  .hover-bounce:hover { animation: bounceY 0.8s ease; }
+
+  /* Flip on hover */
+  .hover-flip { transform-style: preserve-3d; perspective: 800px; }
+  .hover-flip:hover { transform: rotateY(8deg); }
+
+  /* Floating subtle up-down */
+  .float-slow { animation: floatY 6s ease-in-out infinite; }
+  .float-med { animation: floatY 4.5s ease-in-out infinite; }
+  .float-fast { animation: floatY 3s ease-in-out infinite; }
+
+  /* Starry overlay */
+  .starry {
+    position: relative;
+    overflow: hidden;
+  }
+  .starry::before {
+    content: "";
+    position: absolute; inset: 0;
+    background: radial-gradient(circle at 20% 30%, rgba(46,125,50,0.15) 0 2px, transparent 3px) 0 0/120px 120px,
+                radial-gradient(circle at 70% 60%, rgba(102,187,106,0.18) 0 2px, transparent 3px) 0 0/160px 160px;
+    pointer-events: none;
+  }
+
+  /* Wave separator */
+  .wave-separator { position: relative; }
+  .wave-separator::before {
+    content: ""; position: absolute; left: 0; right: 0; top: -1px; height: 60px;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1440 80'%3E%3Cpath fill='%232E7D32' d='M0,32L60,53.3C120,75,240,117,360,122.7C480,128,600,96,720,90.7C840,85,960,107,1080,112C1200,117,1320,107,1380,101.3L1440,96L1440,0L1380,0C1320,0,1200,0,1080,0C960,0,840,0,720,0C600,0,480,0,360,0C240,0,120,0,60,0L0,0Z'/%3E%3C/svg%3E") center bottom/cover no-repeat;
+    transform: translateY(-100%);
+  }
+
+  /* Marquee */
+  .marquee { white-space: nowrap; overflow: hidden; }
+  .marquee > span { display: inline-block; padding-left: 100%; animation: marquee 15s linear infinite; }
+
+  /* Blink and Pulse animations */
+  .blink { animation: blink 1.2s ease-in-out infinite; }
+  .pulse { animation: pulse 1.4s ease-in-out infinite; }
+}
+
+@keyframes heroGradientShift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+@keyframes bounceY {
+  0%, 100% { transform: translateY(0); }
+  30% { transform: translateY(-6px); }
+  60% { transform: translateY(0); }
+}
+
+@keyframes floatY {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-100%); }
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 0.25; transform: scale(0.9); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(46,125,50,0.4); }
+  70% { box-shadow: 0 0 0 12px rgba(46,125,50,0); }
+  100% { box-shadow: 0 0 0 0 rgba(46,125,50,0); }
 }
