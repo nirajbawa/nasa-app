@@ -176,15 +176,6 @@ const UserMenu = ({
     } else {
       // Default navigation behavior
       switch (item) {
-        case "profile":
-          router.push("/profile");
-          break;
-        case "settings":
-          router.push("/settings");
-          break;
-        case "billing":
-          router.push("/billing");
-          break;
         case "logout":
           logout();
           router.push("/sign-in");
@@ -234,20 +225,6 @@ const UserMenu = ({
             </p>
           </div>
         </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => handleItemClick("profile")}>
-          <UserIcon className="h-4 w-4 mr-2" />
-          Profile
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleItemClick("settings")}>
-          <FileTextIcon className="h-4 w-4 mr-2" />
-          Settings
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleItemClick("billing")}>
-          <LayersIcon className="h-4 w-4 mr-2" />
-          Billing
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
         <DropdownMenuItem 
           onClick={() => handleItemClick("logout")}
           className="text-red-600 focus:text-red-600"
@@ -293,9 +270,6 @@ export interface Navbar06Props extends React.HTMLAttributes<HTMLElement> {
 // Default navigation links with icons
 const defaultNavigationLinks: Navbar06NavItem[] = [
   { href: "/dashboard", label: "Dashboard", icon: HomeIcon },
-  { href: "/projects", label: "Projects", icon: LayersIcon },
-  { href: "/documentation", label: "Documentation", icon: FileTextIcon },
-  { href: "/team", label: "Team", icon: UsersIcon },
 ];
 
 // Default language options
