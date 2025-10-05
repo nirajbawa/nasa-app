@@ -25,7 +25,6 @@ export default function MapAreaSelector() {
   const [areaName, setAreaName] = useState("");
   const [currentLocation, setCurrentLocation] = useState<Location>({ lat: 17.6599, lng: 73.3004 });
   const [isDrawing, setIsDrawing] = useState(false);
-  
   const mapRef = useRef<any>(null);
   const currentRectangleRef = useRef<any>(null);
   const savedRectangleRef = useRef<any>(null);
@@ -134,7 +133,6 @@ export default function MapAreaSelector() {
       setStartPoint(point);
       setCurrentPoint(point);
       
-      // Remove existing preview rectangle
       if (currentRectangleRef.current) {
         currentRectangleRef.current.setMap(null);
       }
@@ -199,7 +197,6 @@ export default function MapAreaSelector() {
   useEffect(() => {
     if (!startPoint || !currentPoint || !mapRef.current) return;
 
-    // Remove existing preview
     if (currentRectangleRef.current) {
       currentRectangleRef.current.setMap(null);
     }
@@ -267,7 +264,6 @@ export default function MapAreaSelector() {
       if (!confirm(`You already have an area "${squareArea.name}". Do you want to replace it?`)) {
         return;
       }
-      // Clear existing area
       clearExistingArea();
     }
     
@@ -279,7 +275,6 @@ export default function MapAreaSelector() {
   };
 
   const clearExistingArea = () => {
-    // Remove saved rectangle from map
     if (savedRectangleRef.current) {
       savedRectangleRef.current.setMap(null);
       savedRectangleRef.current = null;
@@ -310,7 +305,6 @@ export default function MapAreaSelector() {
     const bounds = calculateBounds(startPoint, currentPoint);
     const area = calculateArea(bounds.northEast, bounds.southWest);
     
-    // Check if area is too small
     if (area < 10) {
       alert("Selected area is too small. Please select a larger area.");
       return;
@@ -332,18 +326,15 @@ export default function MapAreaSelector() {
       address,
     };
 
-    // Remove preview rectangle
     if (currentRectangleRef.current) {
       currentRectangleRef.current.setMap(null);
       currentRectangleRef.current = null;
     }
 
-    // Remove any existing saved rectangle
     if (savedRectangleRef.current) {
       savedRectangleRef.current.setMap(null);
     }
 
-    // Add saved rectangle to map
     const savedRect = new google.maps.Rectangle({
       bounds: new google.maps.LatLngBounds(bounds.southWest, bounds.northEast),
       map: mapRef.current,
@@ -357,9 +348,8 @@ export default function MapAreaSelector() {
       clickable: true,
     });
 
-    // Add click listener to rectangle
     google.maps.event.addListener(savedRect, 'click', () => {
-      // When clicking the rectangle, just focus on it
+
       if (mapRef.current) {
         mapRef.current.panTo(newArea.center);
         mapRef.current.setZoom(15);
