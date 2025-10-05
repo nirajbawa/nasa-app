@@ -1,31 +1,12 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { GoogleMap, LoadScript, Marker } from "@react-google-maps/api";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-
-// Mock initial farms data
-const initialFarms = [
-  {
-    id: 1,
-    name: "Sunny Meadows Farm",
-    location: { lat: 40.7128, lng: -74.006 },
-    locationName: "New York, NY",
-  },
-  {
-    id: 2,
-    name: "Green Valley Ranch",
-    location: { lat: 34.0522, lng: -118.2437 },
-    locationName: "Los Angeles, CA",
-  },
-  {
-    id: 3,
-    name: "Riverbend Farm",
-    location: { lat: 41.8781, lng: -87.6298 },
-    locationName: "Chicago, IL",
-  },
-];
+import { useAuth } from "@/hooks/useAuth";
+import { db } from "@/lib/firebase";
+import { useRouter } from "next/navigation";
 
 // Map configuration
 const mapContainerStyle = {
@@ -39,10 +20,14 @@ const defaultCenter = {
 };
 
 interface Farm {
-  id: number;
+  id: string;
   name: string;
   location: { lat: number; lng: number };
   locationName: string;
+  userId: string;
+  farmType?: string;
+  size?: number;
+  createdAt?: any;
 }
 
 interface NewFarm {
@@ -64,7 +49,9 @@ const customMarkerIcon = {
 };
 
 export default function FarmDashboard() {
-  const [farms, setFarms] = useState<Farm[]>(initialFarms);
+  const router = useRouter();
+  const [farmsData, setFarms] = useState<Farm[]>([]);
+  const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newFarm, setNewFarm] = useState<NewFarm>({
     name: "",
@@ -73,6 +60,59 @@ export default function FarmDashboard() {
   });
   const [selectedLocation, setSelectedLocation] = useState(defaultCenter);
   const [isMapLoaded, setIsMapLoaded] = useState(false);
+  const { user } = useAuth();
+
+  // Load farms from Firebase
+  const loadFarms = useCallback(async () => {
+    if (!user) {
+      setFarms([]);
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const { collection, query, where, getDocs } = await import('firebase/firestore');
+      
+      const farmsRef = collection(db, 'areas');
+      const q = query(farmsRef, where('userId', '==', user.uid));
+      const querySnapshot = await getDocs(q);
+      
+      const farmsData: Farm[] = [];
+      querySnapshot.forEach((doc) => {
+        const data = doc.data();
+        console.log(data)
+        farmsData.push({
+          id: data.id,
+          name: data.name,
+          location: data.address,
+          locationName: data.address,
+          userId: data.userId,
+          farmType: data.farmType,
+          size: data.size,
+          createdAt: data.createdAt
+        });
+      });
+
+      // Sort farms by creation date (newest first)
+      farmsData.sort((a, b) => {
+        const dateA = a.createdAt?.toDate?.() || new Date(0);
+        const dateB = b.createdAt?.toDate?.() || new Date(0);
+        return dateB.getTime() - dateA.getTime();
+      });
+
+      setFarms(farmsData);
+    } catch (error) {
+      console.error('Error loading farms:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
+  // Load farms on component mount and when user changes
+  useEffect(() => {
+    loadFarms();
+  }, [loadFarms]);
 
   // Handle map click to set location
   const handleMapClick = useCallback((event: google.maps.MapMouseEvent) => {
@@ -100,29 +140,47 @@ export default function FarmDashboard() {
   };
 
   // Handle form submission
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!user) {
+      alert("Please sign in to create a farm.");
+      return;
+    }
 
     if (!newFarm.name || !newFarm.location) {
       alert("Please provide a farm name and select a location on the map.");
       return;
     }
 
-    const farm: Farm = {
-      id: farms.length + 1,
-      name: newFarm.name,
-      location: newFarm.location,
-      locationName: newFarm.locationName,
-    };
+    try {
+      const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
+      
+      const farmData = {
+        name: newFarm.name,
+        location: newFarm.location,
+        locationName: newFarm.locationName,
+        userId: user.uid,
+        createdAt: serverTimestamp()
+      };
 
-    setFarms((prev) => [...prev, farm]);
-    setNewFarm({
-      name: "",
-      location: null,
-      locationName: "",
-    });
-    setSelectedLocation(defaultCenter);
-    setIsModalOpen(false);
+      await addDoc(collection(db, 'farms'), farmData);
+      
+      // Reload farms to include the new one
+      await loadFarms();
+      
+      setNewFarm({
+        name: "",
+        location: null,
+        locationName: "",
+      });
+      setSelectedLocation(defaultCenter);
+      setIsModalOpen(false);
+      
+    } catch (error) {
+      console.error('Error creating farm:', error);
+      alert('Error creating farm. Please try again.');
+    }
   };
 
   // Reset form when modal closes
@@ -141,44 +199,104 @@ export default function FarmDashboard() {
     setIsMapLoaded(true);
   }, []);
 
+  // Format date for display
+  const formatDate = (timestamp: any) => {
+    if (!timestamp) return 'Unknown date';
+    try {
+      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric'
+      });
+    } catch (error) {
+      return 'Invalid date';
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading your farms...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Main Content */}
       <main className="container mx-auto px-4 py-8">
         {/* Action Bar */}
         <div className="mb-8 flex justify-between items-center">
-          <h2 className="text-2xl font-semibold text-gray-800">Your Farms</h2>
+          <div>
+            <h2 className="text-2xl font-semibold text-gray-800">Your Farms</h2>
+            <p className="text-gray-500 mt-1">
+              {farmsData.length} farm{farmsData.length !== 1 ? 's' : ''} managed
+            </p>
+          </div>
           <Link href={"/dashboard/create-farm"}>
-          <button
-            className="bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105"
-          >
-            + Create New Farm
-          </button>
+            <button
+              className="bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105"
+            >
+              + Create New Farm
+            </button>
           </Link>
         </div>
 
         {/* Farms Grid */}
-        {farms.length === 0 ? (
+        {farmsData.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-500 text-lg">
-              No farms yet. Create your first farm!
-            </p>
+            <div className="max-w-md mx-auto">
+              <div className="w-24 h-24 bg-gray-200 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                </svg>
+              </div>
+              <h3 className="text-xl font-semibold text-gray-800 mb-2">No farms yet</h3>
+              <p className="text-gray-500 mb-6">
+                Create your first farm to start managing your agricultural operations.
+              </p>
+              <Link href={"/dashboard/create-farm"}>
+                <button className="bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-300">
+                  Create Your First Farm
+                </button>
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {farms.map((farm) => (
+            {farmsData.map((farm) => (
               <div
                 key={farm.id}
                 className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition duration-300"
               >
                 <div className="p-6">
-                  <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                  <h3 className="text-xl capitalize font-semibold text-gray-800 mb-2">
                     {farm.name}
                   </h3>
-                  <p className="text-gray-600 mb-4">📍 {farm.locationName}</p>
-                  <div className="flex justify-end items-center">
+                  <p className="text-gray-600 mb-2">📍 {farm.locationName}</p>
+                  {farm.farmType && (
+                    <p className="text-gray-500 text-sm mb-2">
+                      Type: {farm.farmType}
+                    </p>
+                  )}
+                  {farm.size && (
+                    <p className="text-gray-500 text-sm mb-2">
+                      Size: {farm.size} acres
+                    </p>
+                  )}
+                  <p className="text-gray-400 text-xs">
+                    Created: {formatDate(farm.createdAt)}
+                  </p>
+                  <div className="flex justify-end items-center mt-4" onClick={()=>{
+                    console.log(farm)
+                    router.push(`/dashboard/farm-simulator?id=${farm.id}`)
+                  }}>
                     <Button className="w-full bg-red-400 hover:bg-red-500 cursor-pointer font-medium text-sm">
-                      Play
+                      Manage Farm
                     </Button>
                   </div>
                 </div>
@@ -269,48 +387,6 @@ export default function FarmDashboard() {
                       <p className="mt-2 text-sm text-gray-500">
                         Choose a memorable name for your farm
                       </p>
-                    </div>
-                  </div>
-
-                  {/* Additional Farm Details (Optional) */}
-                  <div className="bg-gray-50 rounded-2xl p-6">
-                    <div className="flex items-center space-x-3 mb-6">
-                      <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center">
-                        <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <h2 className="text-xl font-semibold text-gray-900">Additional Details</h2>
-                        <p className="text-gray-500">Optional farm information</p>
-                      </div>
-                    </div>
-
-                    <div className="space-y-6">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-3">
-                          Farm Type
-                        </label>
-                        <select className="w-full px-4 py-4 border border-gray-300 rounded-xl focus:ring-3 focus:ring-green-500 focus:border-transparent transition duration-300">
-                          <option value="">Select farm type</option>
-                          <option value="crops">Crop Farm</option>
-                          <option value="livestock">Livestock Farm</option>
-                          <option value="dairy">Dairy Farm</option>
-                          <option value="organic">Organic Farm</option>
-                          <option value="mixed">Mixed Farming</option>
-                        </select>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-3">
-                          Farm Size (acres)
-                        </label>
-                        <input
-                          type="number"
-                          placeholder="e.g., 100"
-                          className="w-full px-4 py-4 border border-gray-300 rounded-xl focus:ring-3 focus:ring-green-500 focus:border-transparent transition duration-300"
-                        />
-                      </div>
                     </div>
                   </div>
                 </div>

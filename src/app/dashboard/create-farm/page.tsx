@@ -1,5 +1,19 @@
-"use client"
+"use client";
 import { useState, useRef, useEffect } from "react";
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  deleteDoc,
+  doc,
+  getDocs,
+  query,
+  where,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "react-toastify";
+import { useRouter } from "next/navigation";
 
 interface Location {
   lat: number;
@@ -16,6 +30,25 @@ interface SquareArea {
   address: string;
 }
 
+export const saveAreaToFirebase = async (area: SquareArea, userId: string) => {
+  try {
+    const areasRef = collection(db, "areas");
+    const areaData = {
+      ...area,
+      userId,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const docRef = await addDoc(areasRef, areaData);
+    console.log("Area saved with ID: ", docRef.id);
+    return { success: true, id: areaData.id };
+  } catch (error) {
+    console.error("Error saving area: ", error);
+    return { success: false, error };
+  }
+};
+
 export default function MapAreaSelector() {
   const [isLoaded, setIsLoaded] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
@@ -23,9 +56,12 @@ export default function MapAreaSelector() {
   const [currentPoint, setCurrentPoint] = useState<Location | null>(null);
   const [squareArea, setSquareArea] = useState<SquareArea | null>(null);
   const [areaName, setAreaName] = useState("");
-  const [currentLocation, setCurrentLocation] = useState<Location>({ lat: 17.6599, lng: 73.3004 });
+  const [currentLocation, setCurrentLocation] = useState<Location>({
+    lat: 32.30507146322962,
+    lng:  -99.10168403323475,
+  });
   const [isDrawing, setIsDrawing] = useState(false);
-  
+
   const mapRef = useRef<any>(null);
   const currentRectangleRef = useRef<any>(null);
   const savedRectangleRef = useRef<any>(null);
@@ -34,9 +70,12 @@ export default function MapAreaSelector() {
   const autocompleteRef = useRef<any>(null);
   const isMouseDownRef = useRef(false);
   const drawingListenersRef = useRef<any[]>([]);
+  const { user } = useAuth();
+
+  const router = useRouter();
 
   useEffect(() => {
-    const script = document.createElement('script');
+    const script = document.createElement("script");
     script.src = `https://maps.googleapis.com/maps/api/js?key=${process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}&libraries=places,geometry`;
     script.async = true;
     script.defer = true;
@@ -50,16 +89,18 @@ export default function MapAreaSelector() {
     };
   }, []);
 
+  const startFarming = () => {};
+
   const initMap = () => {
     if (!window.google) return;
 
-    const mapElement = document.getElementById('map');
+    const mapElement = document.getElementById("map");
     if (!mapElement) return;
 
     const map = new google.maps.Map(mapElement, {
       center: currentLocation,
       zoom: 15,
-      mapTypeId: 'hybrid',
+      mapTypeId: "hybrid",
       streetViewControl: true,
       mapTypeControl: true,
       fullscreenControl: true,
@@ -71,12 +112,12 @@ export default function MapAreaSelector() {
     geocoderRef.current = new google.maps.Geocoder();
 
     // Initialize autocomplete
-    const input = document.getElementById('search-input') as HTMLInputElement;
+    const input = document.getElementById("search-input") as HTMLInputElement;
     if (input) {
       autocompleteRef.current = new google.maps.places.Autocomplete(input);
-      autocompleteRef.current.bindTo('bounds', map);
-      
-      autocompleteRef.current.addListener('place_changed', () => {
+      autocompleteRef.current.bindTo("bounds", map);
+
+      autocompleteRef.current.addListener("place_changed", () => {
         const place = autocompleteRef.current.getPlace();
         if (!place.geometry || !place.geometry.location) {
           alert("No details available for input: '" + place.name + "'");
@@ -87,11 +128,11 @@ export default function MapAreaSelector() {
           lat: place.geometry.location.lat(),
           lng: place.geometry.location.lng(),
         };
-        
+
         setCurrentLocation(newLocation);
         map.setCenter(newLocation);
         map.setZoom(15);
-        
+
         if (markerRef.current) {
           markerRef.current.setPosition(newLocation);
         }
@@ -105,7 +146,7 @@ export default function MapAreaSelector() {
     if (!mapRef.current || !isSelecting) return;
 
     // Remove old listeners
-    drawingListenersRef.current.forEach(listener => {
+    drawingListenersRef.current.forEach((listener) => {
       google.maps.event.removeListener(listener);
     });
     drawingListenersRef.current = [];
@@ -113,73 +154,89 @@ export default function MapAreaSelector() {
     const map = mapRef.current;
 
     // Disable default map dragging when selecting
-    map.setOptions({ 
+    map.setOptions({
       draggable: false,
-      draggableCursor: 'crosshair',
-      draggingCursor: 'crosshair'
+      draggableCursor: "crosshair",
+      draggingCursor: "crosshair",
     });
 
-    const mouseDownListener = google.maps.event.addListener(map, 'mousedown', (e: any) => {
-      if (!e.latLng) return;
-      
-      e.stop(); // Prevent default map behavior
-      isMouseDownRef.current = true;
-      setIsDrawing(true);
-      
-      const point = {
-        lat: e.latLng.lat(),
-        lng: e.latLng.lng(),
-      };
-      
-      setStartPoint(point);
-      setCurrentPoint(point);
-      
-      // Remove existing preview rectangle
-      if (currentRectangleRef.current) {
-        currentRectangleRef.current.setMap(null);
-      }
-    });
+    const mouseDownListener = google.maps.event.addListener(
+      map,
+      "mousedown",
+      (e: any) => {
+        if (!e.latLng) return;
 
-    const mouseMoveListener = google.maps.event.addListener(map, 'mousemove', (e: any) => {
-      if (!isMouseDownRef.current || !e.latLng) return;
-      
-      const point = {
-        lat: e.latLng.lat(),
-        lng: e.latLng.lng(),
-      };
-      
-      setCurrentPoint(point);
-    });
+        e.stop(); // Prevent default map behavior
+        isMouseDownRef.current = true;
+        setIsDrawing(true);
 
-    const mouseUpListener = google.maps.event.addListener(map, 'mouseup', (e: any) => {
-      if (!isMouseDownRef.current) return;
-      
-      isMouseDownRef.current = false;
-      setIsDrawing(false);
-      
-      if (e.latLng) {
         const point = {
           lat: e.latLng.lat(),
           lng: e.latLng.lng(),
         };
+
+        setStartPoint(point);
+        setCurrentPoint(point);
+
+        // Remove existing preview rectangle
+        if (currentRectangleRef.current) {
+          currentRectangleRef.current.setMap(null);
+        }
+      }
+    );
+
+    const mouseMoveListener = google.maps.event.addListener(
+      map,
+      "mousemove",
+      (e: any) => {
+        if (!isMouseDownRef.current || !e.latLng) return;
+
+        const point = {
+          lat: e.latLng.lat(),
+          lng: e.latLng.lng(),
+        };
+
         setCurrentPoint(point);
       }
-    });
+    );
 
-    drawingListenersRef.current = [mouseDownListener, mouseMoveListener, mouseUpListener];
+    const mouseUpListener = google.maps.event.addListener(
+      map,
+      "mouseup",
+      (e: any) => {
+        if (!isMouseDownRef.current) return;
+
+        isMouseDownRef.current = false;
+        setIsDrawing(false);
+
+        if (e.latLng) {
+          const point = {
+            lat: e.latLng.lat(),
+            lng: e.latLng.lng(),
+          };
+          setCurrentPoint(point);
+        }
+      }
+    );
+
+    drawingListenersRef.current = [
+      mouseDownListener,
+      mouseMoveListener,
+      mouseUpListener,
+    ];
   };
 
   const removeDrawingListeners = () => {
-    drawingListenersRef.current.forEach(listener => {
+    drawingListenersRef.current.forEach((listener) => {
       google.maps.event.removeListener(listener);
     });
     drawingListenersRef.current = [];
-    
+
     if (mapRef.current) {
-      mapRef.current.setOptions({ 
+      mapRef.current.setOptions({
         draggable: true,
-        draggableCursor: 'grab',
-        draggingCursor: 'grab'
+        draggableCursor: "grab",
+        draggingCursor: "grab",
       });
     }
   };
@@ -205,13 +262,13 @@ export default function MapAreaSelector() {
     }
 
     const bounds = calculateBounds(startPoint, currentPoint);
-    
+
     currentRectangleRef.current = new google.maps.Rectangle({
       bounds: new google.maps.LatLngBounds(bounds.southWest, bounds.northEast),
       map: mapRef.current,
-      fillColor: '#DC2626',
+      fillColor: "#DC2626",
       fillOpacity: 0.25,
-      strokeColor: '#DC2626',
+      strokeColor: "#DC2626",
       strokeOpacity: 0.9,
       strokeWeight: 3,
       editable: false,
@@ -229,7 +286,7 @@ export default function MapAreaSelector() {
       southWest: {
         lat: Math.min(point1.lat, point2.lat),
         lng: Math.min(point1.lng, point2.lng),
-      }
+      },
     };
   };
 
@@ -238,16 +295,17 @@ export default function MapAreaSelector() {
     const latDistance = ((ne.lat - sw.lat) * Math.PI) / 180;
     const lngDistance = ((ne.lng - sw.lng) * Math.PI) / 180;
     const latMeters = latDistance * earthRadius;
-    const lngMeters = lngDistance * earthRadius * Math.cos(((ne.lat + sw.lat) * Math.PI) / 360);
+    const lngMeters =
+      lngDistance * earthRadius * Math.cos(((ne.lat + sw.lat) * Math.PI) / 360);
     return Math.abs(latMeters * lngMeters);
   };
 
   const getAddress = async (location: Location): Promise<string> => {
     if (!geocoderRef.current) return "Address not available";
-    
+
     return new Promise((resolve) => {
       geocoderRef.current.geocode({ location }, (results: any, status: any) => {
-        if (status === 'OK' && results && results[0]) {
+        if (status === "OK" && results && results[0]) {
           resolve(results[0].formatted_address);
         } else {
           resolve("Address not available");
@@ -261,16 +319,20 @@ export default function MapAreaSelector() {
       alert("Please enter an area name first");
       return;
     }
-    
+
     // If there's already an area, confirm replacement
     if (squareArea) {
-      if (!confirm(`You already have an area "${squareArea.name}". Do you want to replace it?`)) {
+      if (
+        !confirm(
+          `You already have an area "${squareArea.name}". Do you want to replace it?`
+        )
+      ) {
         return;
       }
       // Clear existing area
       clearExistingArea();
     }
-    
+
     setIsSelecting(true);
     setIsDrawing(false);
     setStartPoint(null);
@@ -284,7 +346,7 @@ export default function MapAreaSelector() {
       savedRectangleRef.current.setMap(null);
       savedRectangleRef.current = null;
     }
-    
+
     setSquareArea(null);
   };
 
@@ -294,7 +356,7 @@ export default function MapAreaSelector() {
     setStartPoint(null);
     setCurrentPoint(null);
     isMouseDownRef.current = false;
-    
+
     if (currentRectangleRef.current) {
       currentRectangleRef.current.setMap(null);
       currentRectangleRef.current = null;
@@ -302,93 +364,117 @@ export default function MapAreaSelector() {
   };
 
   const completeSelection = async () => {
-    if (!startPoint || !currentPoint) {
-      alert("Please select an area by dragging on the map");
-      return;
-    }
-
-    const bounds = calculateBounds(startPoint, currentPoint);
-    const area = calculateArea(bounds.northEast, bounds.southWest);
-    
-    // Check if area is too small
-    if (area < 10) {
-      alert("Selected area is too small. Please select a larger area.");
-      return;
-    }
-
-    const center = {
-      lat: (bounds.northEast.lat + bounds.southWest.lat) / 2,
-      lng: (bounds.northEast.lng + bounds.southWest.lng) / 2,
-    };
-    const address = await getAddress(center);
-
-    const newArea: SquareArea = {
-      id: Date.now().toString(),
-      name: areaName,
-      northEast: bounds.northEast,
-      southWest: bounds.southWest,
-      center,
-      area,
-      address,
-    };
-
-    // Remove preview rectangle
-    if (currentRectangleRef.current) {
-      currentRectangleRef.current.setMap(null);
-      currentRectangleRef.current = null;
-    }
-
-    // Remove any existing saved rectangle
-    if (savedRectangleRef.current) {
-      savedRectangleRef.current.setMap(null);
-    }
-
-    // Add saved rectangle to map
-    const savedRect = new google.maps.Rectangle({
-      bounds: new google.maps.LatLngBounds(bounds.southWest, bounds.northEast),
-      map: mapRef.current,
-      fillColor: '#10B981',
-      fillOpacity: 0.3,
-      strokeColor: '#059669',
-      strokeOpacity: 0.8,
-      strokeWeight: 2,
-      editable: false,
-      draggable: false,
-      clickable: true,
-    });
-
-    // Add click listener to rectangle
-    google.maps.event.addListener(savedRect, 'click', () => {
-      // When clicking the rectangle, just focus on it
-      if (mapRef.current) {
-        mapRef.current.panTo(newArea.center);
-        mapRef.current.setZoom(15);
+    try {
+      if (!startPoint || !currentPoint) {
+        alert("Please select an area by dragging on the map");
+        return;
       }
-    });
-    
-    savedRectangleRef.current = savedRect;
-    setSquareArea(newArea);
-    setIsSelecting(false);
-    setStartPoint(null);
-    setCurrentPoint(null);
-    setAreaName("");
-    isMouseDownRef.current = false;
 
-    if (mapRef.current) {
-      mapRef.current.panTo(center);
+      const bounds = calculateBounds(startPoint, currentPoint);
+      const area = calculateArea(bounds.northEast, bounds.southWest);
+
+      // Check if area is too small
+      if (area < 10) {
+        alert("Selected area is too small. Please select a larger area.");
+        return;
+      }
+
+      const center = {
+        lat: (bounds.northEast.lat + bounds.southWest.lat) / 2,
+        lng: (bounds.northEast.lng + bounds.southWest.lng) / 2,
+      };
+      const address = await getAddress(center);
+
+      const newArea: SquareArea = {
+        id: Date.now().toString(),
+        name: areaName,
+        northEast: bounds.northEast,
+        southWest: bounds.southWest,
+        center,
+        area,
+        address,
+      };
+
+      // Remove preview rectangle
+      if (currentRectangleRef.current) {
+        currentRectangleRef.current.setMap(null);
+        currentRectangleRef.current = null;
+      }
+
+      // Remove any existing saved rectangle
+      if (savedRectangleRef.current) {
+        savedRectangleRef.current.setMap(null);
+      }
+
+      // Add saved rectangle to map
+      const savedRect = new google.maps.Rectangle({
+        bounds: new google.maps.LatLngBounds(
+          bounds.southWest,
+          bounds.northEast
+        ),
+        map: mapRef.current,
+        fillColor: "#10B981",
+        fillOpacity: 0.3,
+        strokeColor: "#059669",
+        strokeOpacity: 0.8,
+        strokeWeight: 2,
+        editable: false,
+        draggable: false,
+        clickable: true,
+      });
+
+      const result = await saveAreaToFirebase(newArea, user.uid);
+
+      // Add click listener to rectangle
+      google.maps.event.addListener(savedRect, "click", () => {
+        // When clicking the rectangle, just focus on it
+        if (mapRef.current) {
+          mapRef.current.panTo(newArea.center);
+          mapRef.current.setZoom(15);
+        }
+      });
+
+      savedRectangleRef.current = savedRect;
+      setSquareArea(newArea);
+      setIsSelecting(false);
+      setStartPoint(null);
+      setCurrentPoint(null);
+      setAreaName("");
+      isMouseDownRef.current = false;
+
+      if (mapRef.current) {
+        mapRef.current.panTo(center);
+      }
+
+      if (result.success) {
+        toast.success("Created Successfully", {
+          position: "top-right",
+          autoClose: 3000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          progress: undefined,
+          theme: "light",
+        });
+        console.log(result)
+        router.push(`/dashboard/farm-simulator?id=${result.id}`);
+      }
+    } catch (error) {
+      console.log("error" + error);
     }
   };
 
   const deleteArea = () => {
     if (!squareArea) return;
-    
+
     if (confirm(`Delete "${squareArea.name}"?`)) {
       // Remove saved rectangle from map
       if (savedRectangleRef.current) {
         savedRectangleRef.current.setMap(null);
         savedRectangleRef.current = null;
       }
-      
+
       setSquareArea(null);
       setAreaName("");
     }
@@ -399,7 +485,7 @@ export default function MapAreaSelector() {
     const bounds = calculateBounds(startPoint, currentPoint);
     return {
       ...bounds,
-      area: calculateArea(bounds.northEast, bounds.southWest)
+      area: calculateArea(bounds.northEast, bounds.southWest),
     };
   };
 
@@ -409,16 +495,23 @@ export default function MapAreaSelector() {
     <div className="w-full min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-4">
       <div className="max-w-7xl mx-auto">
         <div className="bg-white rounded-xl shadow-sm p-6 mb-4">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Single Area Selector</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Single Area Selector
+          </h1>
           <p className="text-gray-600">Select one location/area on the map</p>
         </div>
-        
-        <div className="relative bg-white rounded-xl shadow-lg overflow-hidden" style={{ height: '600px' }}>
+
+        <div
+          className="relative bg-white rounded-xl shadow-lg overflow-hidden"
+          style={{ height: "600px" }}
+        >
           {!isLoaded && (
             <div className="absolute inset-0 bg-gray-200 flex items-center justify-center z-50">
               <div className="text-center">
                 <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-                <p className="text-gray-600 font-medium">Loading Google Maps...</p>
+                <p className="text-gray-600 font-medium">
+                  Loading Google Maps...
+                </p>
               </div>
             </div>
           )}
@@ -484,10 +577,14 @@ export default function MapAreaSelector() {
                 <p className="font-bold mb-1">🎯 DRAWING MODE ACTIVE</p>
                 <p className="font-semibold">Click and drag on the map!</p>
                 {isDrawing && (
-                  <p className="font-bold mt-2 text-yellow-200">✏️ Drawing in progress...</p>
+                  <p className="font-bold mt-2 text-yellow-200">
+                    ✏️ Drawing in progress...
+                  </p>
                 )}
                 {startPoint && currentPoint && !isDrawing && (
-                  <p className="font-bold mt-2 text-green-200">✅ Release detected! Click Save Area</p>
+                  <p className="font-bold mt-2 text-green-200">
+                    ✅ Release detected! Click Save Area
+                  </p>
                 )}
               </div>
             )}
@@ -495,9 +592,12 @@ export default function MapAreaSelector() {
             {currentBounds && (
               <div className="text-sm text-gray-700 bg-blue-50 p-3 rounded-lg border-2 border-blue-300 shadow-md">
                 <p className="font-semibold mb-1">📏 Current Selection:</p>
-                <p className="text-2xl font-bold text-blue-700">{(currentBounds.area / 10000).toFixed(3)} ha</p>
+                <p className="text-2xl font-bold text-blue-700">
+                  {(currentBounds.area / 10000).toFixed(3)} ha
+                </p>
                 <p className="text-xs text-gray-600 mt-1">
-                  {(currentBounds.area).toFixed(0)} m² | {(currentBounds.area * 0.000247105).toFixed(3)} acres
+                  {currentBounds.area.toFixed(0)} m² |{" "}
+                  {(currentBounds.area * 0.000247105).toFixed(3)} acres
                 </p>
               </div>
             )}
@@ -508,18 +608,22 @@ export default function MapAreaSelector() {
             <h3 className="font-bold text-lg mb-3 text-gray-900">
               📍 Selected Area {squareArea ? "✅" : "❌"}
             </h3>
-            
+
             {!squareArea ? (
               <div className="text-center py-6">
                 <div className="text-4xl mb-2">🗺️</div>
                 <p className="text-sm text-gray-500">No area selected yet</p>
-                <p className="text-xs text-gray-400 mt-1">Draw an area to get started!</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Draw an area to get started!
+                </p>
               </div>
             ) : (
               <div className="space-y-3">
                 <div className="p-3 border-2 border-green-500 rounded-lg bg-green-50 shadow-md">
                   <div className="flex justify-between items-start mb-2">
-                    <h4 className="font-semibold text-gray-900 text-lg">{squareArea.name}</h4>
+                    <h4 className="font-semibold text-gray-900 text-lg">
+                      {squareArea.name}
+                    </h4>
                     <button
                       onClick={deleteArea}
                       className="text-red-500 hover:text-red-700 text-sm font-semibold bg-white rounded-full p-1 shadow-sm"
@@ -527,38 +631,63 @@ export default function MapAreaSelector() {
                       🗑️ Delete
                     </button>
                   </div>
-                  
+
                   <div className="bg-white p-2 rounded border border-green-200">
                     <p className="font-bold text-green-800 text-lg mb-1">
                       📏 {(squareArea.area / 10000).toFixed(3)} hectares
                     </p>
                     <p className="text-xs text-green-700">
-                      {(squareArea.area).toFixed(0)} m² | {(squareArea.area * 0.000247105).toFixed(3)} acres
+                      {squareArea.area.toFixed(0)} m² |{" "}
+                      {(squareArea.area * 0.000247105).toFixed(3)} acres
                     </p>
                   </div>
-                  
+
                   <div className="mt-2 bg-gray-50 p-2 rounded text-xs border border-gray-200">
                     <p className="font-semibold mb-1">📍 Location:</p>
                     <p className="text-gray-600">{squareArea.address}</p>
                   </div>
-                  
+
                   <div className="mt-2 bg-blue-50 p-2 rounded text-xs border border-blue-200">
                     <p className="font-semibold mb-1">🗺️ Coordinates:</p>
-                    <p>NE: {squareArea.northEast.lat.toFixed(6)}, {squareArea.northEast.lng.toFixed(6)}</p>
-                    <p>SW: {squareArea.southWest.lat.toFixed(6)}, {squareArea.southWest.lng.toFixed(6)}</p>
+                    <p>
+                      NE: {squareArea.northEast.lat.toFixed(6)},{" "}
+                      {squareArea.northEast.lng.toFixed(6)}
+                    </p>
+                    <p>
+                      SW: {squareArea.southWest.lat.toFixed(6)},{" "}
+                      {squareArea.southWest.lng.toFixed(6)}
+                    </p>
                   </div>
                 </div>
-                
+
                 <button
                   onClick={() => {
                     if (mapRef.current && squareArea) {
-                      const bounds = new google.maps.LatLngBounds(squareArea.southWest, squareArea.northEast);
+                      const bounds = new google.maps.LatLngBounds(
+                        squareArea.southWest,
+                        squareArea.northEast
+                      );
                       mapRef.current.fitBounds(bounds);
                     }
                   }}
                   className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition font-medium shadow-md"
                 >
                   🔍 Focus on Area
+                </button>
+
+                <button
+                  onClick={() => {
+                    if (mapRef.current && squareArea) {
+                      const bounds = new google.maps.LatLngBounds(
+                        squareArea.southWest,
+                        squareArea.northEast
+                      );
+                      mapRef.current.fitBounds(bounds);
+                    }
+                  }}
+                  className="w-full bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700 transition font-medium shadow-md"
+                >
+                  Start Farming
                 </button>
               </div>
             )}
@@ -569,7 +698,9 @@ export default function MapAreaSelector() {
             <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-10">
               <div className="text-white bg-black bg-opacity-80 px-8 py-6 rounded-2xl text-xl font-bold shadow-2xl border-4 border-yellow-400 animate-pulse">
                 <p className="text-3xl mb-2">🖱️ CLICK AND DRAG ON THE MAP</p>
-                <p className="text-center text-yellow-300">Draw your area now!</p>
+                <p className="text-center text-yellow-300">
+                  Draw your area now!
+                </p>
               </div>
             </div>
           )}
@@ -578,16 +709,34 @@ export default function MapAreaSelector() {
         <div className="mt-4 bg-gradient-to-r from-blue-50 to-green-50 border-l-4 border-green-500 rounded-lg p-4 shadow-md">
           <h2 className="font-bold text-gray-900 mb-2">📖 Quick Guide</h2>
           <ol className="list-decimal list-inside space-y-1 text-sm text-gray-800">
-            <li><strong>Search:</strong> Use the search box to find any location worldwide</li>
-            <li><strong>Name:</strong> Enter a name for your area</li>
-            <li><strong>Draw:</strong> Click "Draw Area" and drag on the map</li>
-            <li><strong>Save:</strong> Click "Save Area" to store your selection</li>
-            <li><strong>Replace:</strong> Draw again to replace the current area</li>
-            <li><strong>Delete:</strong> Use the delete button to remove the area</li>
+            <li>
+              <strong>Search:</strong> Use the search box to find any location
+              worldwide
+            </li>
+            <li>
+              <strong>Name:</strong> Enter a name for your area
+            </li>
+            <li>
+              <strong>Draw:</strong> Click "Draw Area" and drag on the map
+            </li>
+            <li>
+              <strong>Save:</strong> Click "Save Area" to store your selection
+            </li>
+            <li>
+              <strong>Replace:</strong> Draw again to replace the current area
+            </li>
+            <li>
+              <strong>Delete:</strong> Use the delete button to remove the area
+            </li>
           </ol>
           <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-sm font-semibold text-yellow-800">⚠️ Single Area Limitation</p>
-            <p className="text-xs text-yellow-700 mt-1">You can only select one area at a time. Drawing a new area will replace the existing one.</p>
+            <p className="text-sm font-semibold text-yellow-800">
+              ⚠️ Single Area Limitation
+            </p>
+            <p className="text-xs text-yellow-700 mt-1">
+              You can only select one area at a time. Drawing a new area will
+              replace the existing one.
+            </p>
           </div>
         </div>
       </div>

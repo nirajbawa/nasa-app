@@ -14,7 +14,7 @@ export default function ProtectedLayout({ children }: ProtectedLayoutProps) {
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/signup');
+      router.push('/sign-in');
     }
   }, [user, loading, router]);
 

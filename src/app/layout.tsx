@@ -3,6 +3,7 @@ import { Poppins, Nunito } from "next/font/google";
 // @ts-ignore
 import "@/app/globals.css";
 import AuthInitializer from "@/components/AuthInitializer";
+import { ToastContainer } from "react-toastify";
 
 const poppins = Poppins({
   variable: "--font-sans",
@@ -33,6 +34,7 @@ export default function RootLayout({
       <body className={`${poppins.variable} ${nunito.variable} antialiased`}>
         <AuthInitializer />
         {children}
+        <ToastContainer />
       </body>
     </html>
   );

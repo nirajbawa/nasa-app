@@ -26,13 +26,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -49,7 +42,7 @@ import {
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { useRouter, usePathname } from "next/navigation";
-
+import { useAuth } from '@/hooks/useAuth';
 
 // Simple logo component for the navbar
 const Logo = (props: React.SVGAttributes<SVGElement>) => {
@@ -150,17 +143,32 @@ const ThemeToggle = ({
 
 // User Menu Component
 const UserMenu = ({
-  userName = "John Doe",
-  userEmail = "john@example.com",
-  userAvatar,
   onItemClick,
 }: {
-  userName?: string;
-  userEmail?: string;
-  userAvatar?: string;
   onItemClick?: (item: string) => void;
 }) => {
+  const { user, logout } = useAuth();
   const router = useRouter();
+
+  // Get user data from Firebase
+  const userName = user?.displayName || "User";
+  const userEmail = user?.email || "No email";
+  const userAvatar = user?.photoURL || "";
+  
+  // Generate avatar fallback from user's name or email
+  const getAvatarFallback = () => {
+    if (user?.displayName) {
+      return user.displayName
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .toUpperCase();
+    }
+    if (user?.email) {
+      return user.email[0].toUpperCase();
+    }
+    return "U";
+  };
 
   const handleItemClick = (item: string) => {
     if (onItemClick) {
@@ -178,15 +186,27 @@ const UserMenu = ({
           router.push("/billing");
           break;
         case "logout":
-          // Handle logout logic here
-          console.log("Logging out...");
-          router.push("/login");
+          logout();
+          router.push("/sign-in");
           break;
         default:
           break;
       }
     }
   };
+
+  // If user is not logged in, show login button
+  if (!user) {
+    return (
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => router.push("/signup")}
+      >
+        Sign In
+      </Button>
+    );
+  }
 
   return (
     <DropdownMenu>
@@ -198,10 +218,7 @@ const UserMenu = ({
           <Avatar className="h-6 w-6">
             <AvatarImage src={userAvatar} alt={userName} />
             <AvatarFallback className="text-xs">
-              {userName
-                .split(" ")
-                .map((n) => n[0])
-                .join("")}
+              {getAvatarFallback()}
             </AvatarFallback>
           </Avatar>
           <ChevronDownIcon className="h-3 w-3 ml-1" />
@@ -219,16 +236,23 @@ const UserMenu = ({
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={() => handleItemClick("profile")}>
+          <UserIcon className="h-4 w-4 mr-2" />
           Profile
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => handleItemClick("settings")}>
+          <FileTextIcon className="h-4 w-4 mr-2" />
           Settings
         </DropdownMenuItem>
         <DropdownMenuItem onClick={() => handleItemClick("billing")}>
+          <LayersIcon className="h-4 w-4 mr-2" />
           Billing
         </DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={() => handleItemClick("logout")}>
+        <DropdownMenuItem 
+          onClick={() => handleItemClick("logout")}
+          className="text-red-600 focus:text-red-600"
+        >
+          <MoonIcon className="h-4 w-4 mr-2" />
           Log out
         </DropdownMenuItem>
       </DropdownMenuContent>
@@ -260,9 +284,6 @@ export interface Navbar06Props extends React.HTMLAttributes<HTMLElement> {
   navigationLinks?: Navbar06NavItem[];
   languages?: Navbar06Language[];
   defaultLanguage?: string;
-  userName?: string;
-  userEmail?: string;
-  userAvatar?: string;
   onNavItemClick?: (href: string) => void;
   onLanguageChange?: (language: string) => void;
   onThemeChange?: (theme: "light" | "dark") => void;
@@ -295,9 +316,6 @@ export const Navbar06 = forwardRef<HTMLElement, Navbar06Props>(
       navigationLinks = defaultNavigationLinks,
       languages = defaultLanguages,
       defaultLanguage = "en",
-      userName = "John Doe",
-      userEmail = "john@example.com",
-      userAvatar,
       onNavItemClick,
       onLanguageChange,
       onThemeChange,
@@ -306,6 +324,7 @@ export const Navbar06 = forwardRef<HTMLElement, Navbar06Props>(
     },
     ref
   ) => {
+    const { user } = useAuth();
     const router = useRouter();
     const pathname = usePathname();
     const [isMobile, setIsMobile] = useState(false);
@@ -350,7 +369,11 @@ export const Navbar06 = forwardRef<HTMLElement, Navbar06Props>(
 
     // Handle logo click
     const handleLogoClick = () => {
-      router.push(logoHref);
+      if (user) {
+        router.push(logoHref);
+      } else {
+        router.push("/sign-in");
+      }
     };
 
     // Combine refs
@@ -437,7 +460,7 @@ export const Navbar06 = forwardRef<HTMLElement, Navbar06Props>(
                 </span>
               </button>
               {/* Desktop navigation - icon only */}
-              {!isMobile && (
+              {!isMobile && user && (
                 <NavigationMenu className="flex">
                   <NavigationMenuList className="gap-2">
                     <TooltipProvider>
@@ -507,12 +530,7 @@ export const Navbar06 = forwardRef<HTMLElement, Navbar06Props>(
               </SelectContent>
             </Select> */}
             {/* User menu */}
-            <UserMenu
-              userName={userName}
-              userEmail={userEmail}
-              userAvatar={userAvatar}
-              onItemClick={onUserItemClick}
-            />
+            <UserMenu onItemClick={onUserItemClick} />
           </div>
         </div>
       </header>

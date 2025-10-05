@@ -1,6 +1,7 @@
 "use client";
 import { motion } from "framer-motion";
 import { PrimaryButton, SecondaryButton } from "./buttons";
+import Link from "next/link";
 
 export default function Join() {
   return (
@@ -20,7 +21,7 @@ export default function Join() {
             Build solutions that empower farmers with Earth observation data and sustainability insights.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-4">
-            <PrimaryButton href="#" as="a">Join the Challenge</PrimaryButton>
+            <Link href={"/sign-in"}><PrimaryButton as="a">Join the Challenge</PrimaryButton></Link>
             <SecondaryButton href="#tutorials" as="a">View Tutorials</SecondaryButton>
           </div>
         </motion.div>
