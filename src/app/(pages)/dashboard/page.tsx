@@ -3,6 +3,7 @@
 import React, { useState, useCallback } from "react";
 import { GoogleMap, LoadScript, Marker } from "@react-google-maps/api";
 import { Button } from "@/components/ui/button";
+import Link from "next/link";
 
 // Mock initial farms data
 const initialFarms = [
@@ -147,12 +148,13 @@ export default function FarmDashboard() {
         {/* Action Bar */}
         <div className="mb-8 flex justify-between items-center">
           <h2 className="text-2xl font-semibold text-gray-800">Your Farms</h2>
+          <Link href={"/dashboard/create-farm"}>
           <button
-            onClick={() => setIsModalOpen(true)}
             className="bg-green-500 hover:bg-green-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md transition duration-300 ease-in-out transform hover:scale-105"
           >
             + Create New Farm
           </button>
+          </Link>
         </div>
 
         {/* Farms Grid */}
